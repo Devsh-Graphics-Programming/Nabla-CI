@@ -128,54 +128,58 @@ def generateHTMLStatus(_htmlData, _cacheChanged, scenes_input):
     </html>
     '''
 
-    htmlFile = open(str(NBL_CI_WORKING_DIR.absolute()) + scenes_input[1], "w")
+    htmlFile = open(str(NBL_CI_WORKING_DIR.absolute()) + "/" + scenes_input[1], "w")
     htmlFile.write(HTML_BODY)
     htmlFile.close()
 
 
+def get_render_filename(line : str):
+    words = line.replace('"', '').strip().split(" ")
+    zip = os.path.splitext(str(Path(" ".join(words[0:-1])).name)[0] + "_") if  len(words) > 1 else "" 
+    return zip + os.path.splitext(Path(words[-1]).name)[0]
+
+
 if __name__ == '__main__':
     if NBL_PATHTRACER_EXE.is_file():
+
+        os.chdir(NBL_PATHTRACER_EXE.parent.absolute())
+
+        if not NBL_CI_REFERENCES_DIR.is_dir():
+            os.makedirs(str(NBL_CI_REFERENCES_DIR.absolute()))
+
+        NBL_DUMMY_CACHE_CASE = not bool(Path(str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + NBL_CI_LDS_CACHE_FILENAME).is_file())
+        generatedReferenceCache = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + NBL_CI_LDS_CACHE_FILENAME
+        destinationReferenceCache = str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + NBL_CI_LDS_CACHE_FILENAME
+
+        sceneDummyRender = '"../ci/dummy_4096spp_128depth.xml"'
+        executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + sceneDummyRender + ' -TERMINATE'
+        subprocess.run(executor, capture_output=True)
+            
+        # if we start the path tracer first time
+        if NBL_DUMMY_CACHE_CASE:
+            shutil.copyfile(generatedReferenceCache, destinationReferenceCache)
+        elif not filecmp.cmp(destinationReferenceCache, generatedReferenceCache):
+            # fail CI if the reference cache is different that current generated cache
+            cacheChanged = True
+            CI_PASS_STATUS = False
+
         for input in NBL_SCENES_INPUTS:
             input_filepath = input[0]
             if not input_filepath.is_file():
                 print(f'Scenes input {input_filepath} does not exist!')
                 continue
         
-         
             with open(input_filepath.absolute()) as aFile:
                 inputLines = aFile.readlines()
-
-            os.chdir(NBL_PATHTRACER_EXE.parent.absolute())
-
-            if not NBL_CI_REFERENCES_DIR.is_dir():
-                os.makedirs(str(NBL_CI_REFERENCES_DIR.absolute()))
 
             htmlData = []
             cacheChanged = False
 
-            NBL_DUMMY_CACHE_CASE = not bool(Path(str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + NBL_CI_LDS_CACHE_FILENAME).is_file())
-            generatedReferenceCache = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + NBL_CI_LDS_CACHE_FILENAME
-            destinationReferenceCache = str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + NBL_CI_LDS_CACHE_FILENAME
-
-            sceneDummyRender = '"../ci/dummy_4096spp_128depth.xml"'
-            executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + sceneDummyRender + ' -TERMINATE'
-            subprocess.run(executor, capture_output=True)
-            
-            # if we start the path tracer first time
-            if NBL_DUMMY_CACHE_CASE:
-                shutil.copyfile(generatedReferenceCache, destinationReferenceCache)
-            elif not filecmp.cmp(destinationReferenceCache, generatedReferenceCache):
-                # fail CI if the reference cache is different that current generated cache
-                cacheChanged = True
-                CI_PASS_STATUS = False
-
             for line in inputLines:
                 if list(line)[0] != ';':
-
                     htmlRowTuple = ['', True, ['', '', True, ''], ['', '', True, ''], ['', '', True, ''], ['', '', True, '']]
-                    renderPath = line.strip().replace('"', '').split()[0]
-                    renderName = os.path.splitext(str(Path(renderPath).name))[0]
-                    undenoisedTargetName = 'Render_' + renderName + '_scene'
+                    renderName = get_render_filename(line)
+                    undenoisedTargetName = 'Render_' + renderName
                     NBL_DUMMY_RENDER_CASE = not bool(Path(str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + renderName + '/' + undenoisedTargetName + '.exr').is_file())
 
                     # dummy case executes when there is no reference render
