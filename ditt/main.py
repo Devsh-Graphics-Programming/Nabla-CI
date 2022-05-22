@@ -19,7 +19,7 @@ NBL_SCENES_INPUTS = [
 ]
 NBL_ERROR_THRESHOLD = "0.05" #relative error between reference and generated images, value between 1.0 and 0.0
 NBL_ERROR_TOLERANCE_COUNT = 64          
-CLOSE_TO_ZERO = "0.000001"         
+CLOSE_TO_ZERO = "0.00001"         
 
 NBL_CI_WORKING_DIR = Path(str(NBL_PATHTRACER_EXE.parent.absolute()) + '/ci_working_dir')
 NBL_CI_REFERENCES_DIR = Path(str(NBL_CI_WORKING_DIR.absolute()) + '/references')
@@ -135,7 +135,7 @@ def generateHTMLStatus(_htmlData, _cacheChanged, scenes_input):
 
 def get_render_filename(line : str):
     words = line.replace('"', '').strip().split(" ")
-    zip = os.path.splitext(str(Path(" ".join(words[0:-1])).name)[0] + "_") if  len(words) > 1 else "" 
+    zip = (os.path.splitext(str(Path(" ".join(words[0:-1])).name))[0] + "_") if len(words) > 1 else "" 
     return zip + os.path.splitext(Path(words[-1]).name)[0]
 
 
