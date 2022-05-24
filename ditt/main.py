@@ -4,19 +4,13 @@ import shutil
 import filecmp
 from pathlib import *
 
-# NBL_IMAGEMAGICK_EXE = Path('@_NBL_IMAGEMAGICK_EXE_@')
-# NBL_PATHTRACER_EXE = Path('@_NBL_PATHTRACER_EXE_@')
-# NBL_SCENES_INPUTS = [ 
-#     (Path('@_NBL_SCENES_INPUT_TXT_@'), "index.html", 'https://artifactory.devsh.eu/Ditt/ci/data/references/' ), 
-#     (Path('@_NBL_PRIVATE_SCENES_INPUT_TXT_@'), "private.html", 'https://artifactory.devsh.eu/Ditt/ci/data/references/')
-# ]
-
-NBL_IMAGEMAGICK_EXE = Path('D:/Programs/ImageMagick-7.1.0-Q16-HDRI/magick.exe')
-NBL_PATHTRACER_EXE = Path('C:/Users/Hazard/Nabla/examples_tests/22.RaytracedAO/bin/raytracedao.exe')
+NBL_IMAGEMAGICK_EXE = Path('@_NBL_IMAGEMAGICK_EXE_@')
+NBL_PATHTRACER_EXE = Path('@_NBL_PATHTRACER_EXE_@')
 NBL_SCENES_INPUTS = [ 
-    (Path('C:/Users/Hazard/Nabla/examples_tests/22.RaytracedAO/public_test_scenes.txt'), "index.html", 'https://artifactory.devsh.eu/Ditt/ci/data/references/' ), 
-    (Path('C:/Users/Hazard/Nabla/examples_tests/media/Ditt-Reference-Scenes/private_test_scenes.txt'), "private.html", 'https://artifactory.devsh.eu/Ditt/ci/data/references/')
+    (Path('@_NBL_SCENES_INPUT_TXT_@'), "index.html", 'https://artifactory.devsh.eu/Ditt/ci/data/references/' ), 
+    (Path('@_NBL_PRIVATE_SCENES_INPUT_TXT_@'), "private.html", 'https://artifactory.devsh.eu/Ditt/ci/data/references/')
 ]
+
 NBL_ERROR_THRESHOLD = "0.05" #relative error between reference and generated images, value between 1.0 and 0.0
 NBL_ERROR_TOLERANCE_COUNT = 64          
 CLOSE_TO_ZERO = "0.00001"         
