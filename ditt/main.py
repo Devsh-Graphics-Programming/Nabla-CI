@@ -4,21 +4,32 @@ import shutil
 import filecmp
 from pathlib import *
 
+
 NBL_IMAGEMAGICK_EXE = Path('@_NBL_IMAGEMAGICK_EXE_@')
 NBL_PATHTRACER_EXE = Path('@_NBL_PATHTRACER_EXE_@')
-NBL_SCENES_INPUTS = [ 
-    (Path('@_NBL_SCENES_INPUT_TXT_@'), "index.html", 'https://artifactory.devsh.eu/Ditt/ci/data/references/' ), 
-    (Path('@_NBL_PRIVATE_SCENES_INPUT_TXT_@'), "private.html", 'https://artifactory.devsh.eu/Ditt/ci/data/references/')
-]
-
+NBL_CI_WORKING_DIR = Path(str(NBL_PATHTRACER_EXE.parent.absolute()) + '/ci_working_dir')
+NBL_CI_LDS_CACHE_FILENAME = 'LowDiscrepancySequenceCache.bin'
 NBL_ERROR_THRESHOLD = "0.05" #relative error between reference and generated images, value between 1.0 and 0.0
 NBL_ERROR_TOLERANCE_COUNT = 64          
+NBL_SCENES_INPUTS = [ 
+    {
+        "input file": Path('@_NBL_SCENES_INPUT_TXT_@'), 
+        "website file": "index.html", 
+        "website ref link": 'https://artifactory.devsh.eu/Ditt/ci/data/references/public/' ,
+        "reference folder": str(Path(str(NBL_CI_WORKING_DIR.absolute()) + '/references/public').absolute()),
+        "storage folder": "/recent/public"
+    }, 
+    {
+        "input file": Path('@_NBL_PRIVATE_SCENES_INPUT_TXT_@'), 
+        "website file": "private.html", 
+        "website ref link": 'https://artifactory.devsh.eu/Ditt/ci/data/references/private/' ,
+        "reference folder": str(Path(str(NBL_CI_WORKING_DIR.absolute()) + '/references/private').absolute()),
+        "storage folder": "/recent/private"
+    }, 
+]
 CLOSE_TO_ZERO = "0.00001"         
-
-NBL_CI_WORKING_DIR = Path(str(NBL_PATHTRACER_EXE.parent.absolute()) + '/ci_working_dir')
-NBL_CI_REFERENCES_DIR = Path(str(NBL_CI_WORKING_DIR.absolute()) + '/references')
-NBL_CI_LDS_CACHE_FILENAME = 'LowDiscrepancySequenceCache.bin'
 CI_PASS_STATUS = True
+
 
 HTML_TUPLE_RENDER_INDEX = 0
 HTML_TUPLE_PASS_STATUS_INDEX = 1
@@ -99,8 +110,8 @@ def generateHTMLStatus(_htmlData, _cacheChanged, scenes_input):
             anIndexOfRenderAspect = i + HTML_TUPLE_INPUT_INDEX
 
             aspectRenderData = _htmlRowTuple[anIndexOfRenderAspect]
-            HTML_HYPERLINK_DIFF = scenes_input[2] + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_DIFF]
-            HTML_HYPERLINK_REF = scenes_input[2] + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_REF]
+            HTML_HYPERLINK_DIFF = scenes_input["website ref link"] + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_DIFF]
+            HTML_HYPERLINK_REF = scenes_input["website ref link"] + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_REF]
             HTML_ROW_BODY += (  '<td scope="col">' + '<a href="' + HTML_HYPERLINK_DIFF + '">' 
                 + aspectRenderData[HTML_R_A_N_D_D_DIFF] + '</a><br/>'
                 '<a href="'+HTML_HYPERLINK_REF+ '">' 
@@ -122,7 +133,7 @@ def generateHTMLStatus(_htmlData, _cacheChanged, scenes_input):
     </html>
     '''
 
-    htmlFile = open(str(NBL_CI_WORKING_DIR.absolute()) + "/" + scenes_input[1], "w")
+    htmlFile = open(str(NBL_CI_WORKING_DIR.absolute()) + "/" + scenes_input["website file"], "w")
     htmlFile.write(HTML_BODY)
     htmlFile.close()
 
@@ -136,29 +147,34 @@ def get_render_filename(line : str):
 if __name__ == '__main__':
     if NBL_PATHTRACER_EXE.is_file():
 
-        os.chdir(NBL_PATHTRACER_EXE.parent.absolute())
-
-        if not NBL_CI_REFERENCES_DIR.is_dir():
-            os.makedirs(str(NBL_CI_REFERENCES_DIR.absolute()))
-
-        NBL_DUMMY_CACHE_CASE = not bool(Path(str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + NBL_CI_LDS_CACHE_FILENAME).is_file())
-        generatedReferenceCache = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + NBL_CI_LDS_CACHE_FILENAME
-        destinationReferenceCache = str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + NBL_CI_LDS_CACHE_FILENAME
-
-        sceneDummyRender = '"../ci/dummy_4096spp_128depth.xml"'
-        executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + sceneDummyRender + ' -TERMINATE'
-        subprocess.run(executor, capture_output=True)
-            
-        # if we start the path tracer first time
-        if NBL_DUMMY_CACHE_CASE:
-            shutil.copyfile(generatedReferenceCache, destinationReferenceCache)
-        elif not filecmp.cmp(destinationReferenceCache, generatedReferenceCache):
-            # fail CI if the reference cache is different that current generated cache
-            cacheChanged = True
-            CI_PASS_STATUS = False
+        os.chdir(NBL_PATHTRACER_EXE.parent.absolute()) 
 
         for input in NBL_SCENES_INPUTS:
-            input_filepath = input[0]
+
+            referenceDir = input["reference folder"]
+            if not Path(referenceDir).is_dir():
+                os.makedirs(referenceDir)
+
+            storageDir = str(NBL_CI_WORKING_DIR.absolute()) + input["storage folder"]
+            if not Path(storageDir).is_dir():
+                os.makedirs(storageDir)
+
+            NBL_DUMMY_CACHE_CASE = not bool(Path(referenceDir + '/' + NBL_CI_LDS_CACHE_FILENAME).is_file())
+            generatedReferenceCache = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + NBL_CI_LDS_CACHE_FILENAME
+            destinationReferenceCache = referenceDir + '/' + NBL_CI_LDS_CACHE_FILENAME
+
+            sceneDummyRender = '"../ci/dummy_4096spp_128depth.xml"'
+            executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + sceneDummyRender + ' -TERMINATE'
+            subprocess.run(executor, capture_output=True)
+                
+            # if we start the path tracer first time
+            if NBL_DUMMY_CACHE_CASE:
+                shutil.copyfile(generatedReferenceCache, destinationReferenceCache)
+            elif not filecmp.cmp(destinationReferenceCache, generatedReferenceCache):
+                # fail CI if the reference cache is different that current generated cache
+                cacheChanged = True
+                CI_PASS_STATUS = False
+            input_filepath = input["input file"]
             if not input_filepath.is_file():
                 print(f'Scenes input {input_filepath} does not exist!')
                 continue
@@ -174,13 +190,14 @@ if __name__ == '__main__':
                     htmlRowTuple = ['', True, ['', '', True, ''], ['', '', True, ''], ['', '', True, ''], ['', '', True, '']]
                     renderName = get_render_filename(line)
                     undenoisedTargetName = 'Render_' + renderName
-                    NBL_DUMMY_RENDER_CASE = not bool(Path(str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + renderName + '/' + undenoisedTargetName + '.exr').is_file())
 
                     # dummy case executes when there is no reference render
                     # or no low discrepancy sequence cache in ci working directory
-                    generatedUndenoisedTargetName = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + undenoisedTargetName
-                    destinationReferenceUndenoisedTargetName = str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + renderName + '/' + undenoisedTargetName
+                    NBL_DUMMY_RENDER_CASE = not bool(Path(input["reference folder"] + '/' + renderName + '/' + undenoisedTargetName + '.exr').is_file())
 
+                    generatedUndenoisedTargetName = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + undenoisedTargetName
+                    destinationReferenceUndenoisedTargetName = input["reference folder"] + '/' + renderName + '/' + undenoisedTargetName
+                
                     # if we render first time a scene then we need to have a reference of this scene for following ci checks
                     if NBL_DUMMY_RENDER_CASE:
                         sceneDummyRender = line.strip()
@@ -206,10 +223,10 @@ if __name__ == '__main__':
                     anIndex = HTML_TUPLE_INPUT_INDEX
                     outputDiffTerminators = ['', '_albedo', '_normal', '_denoised']
                     for diffTerminator in outputDiffTerminators:
-                        imageDiffFilePath = str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + renderName + '/' + renderName + diffTerminator +"_diff.exr"
+                        imageDiffFilePath = input["reference folder"] + '/' + renderName + '/' + renderName + diffTerminator +"_diff.exr"
                         imageRefFilepath = destinationReferenceUndenoisedTargetName + diffTerminator + '.exr'
                         imageGenFilepath = generatedUndenoisedTargetName + diffTerminator + '.exr'
-                        
+
                         #create difference image for debugging
                         diffImageCommandParams = f' "{imageRefFilepath}" "{imageGenFilepath}" -fx "abs(u-v)" "{imageDiffFilePath}"'
                         executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffImageCommandParams
@@ -227,7 +244,7 @@ if __name__ == '__main__':
                         histogramOutputLines = magickDiffValProcess.stdout.decode().splitlines()
                         errorPixelCount = histogramOutputLines[-1].split()[0][:-1] if len(histogramOutputLines) > 1 else "0"
 
-                        diffValueFilepath = str(NBL_CI_REFERENCES_DIR.absolute()) + '/' + renderName + '/' + renderName + diffTerminator + '_diff.txt'
+                        diffValueFilepath = input["reference folder"] + '/' + renderName + '/' + renderName + diffTerminator + '_diff.txt'
                         diffValueFile = open(diffValueFilepath, "w")
                         diffValueFile.write('difference error: ' + str(errorPixelCount))
                         diffValueFile.close()
@@ -241,10 +258,17 @@ if __name__ == '__main__':
                         htmlRowTuple[anIndex][HTML_R_A_N_D_D_DIFF] = renderName + diffTerminator + '_diff.exr'
                         htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = str(errorPixelCount)
                         htmlRowTuple[anIndex][HTML_R_A_N_D_D_PASS] = DIFF_PASS
-                        htmlRowTuple[anIndex][HTML_R_A_N_D_D_REF] = 'Render_' + renderName + '_scene'+diffTerminator+".exr"
+                        htmlRowTuple[anIndex][HTML_R_A_N_D_D_REF] = 'Render_' + renderName + diffTerminator + ".exr"
 
                         anIndex += 1
                     htmlData.append(htmlRowTuple)
+
+                    storageFilepath = storageDir + '/' + undenoisedTargetName
+                    shutil.move(generatedUndenoisedTargetName + '.exr', storageFilepath + '.exr')
+                    shutil.move(generatedUndenoisedTargetName + '_albedo.exr', storageFilepath + '_albedo.exr')
+                    shutil.move(generatedUndenoisedTargetName + '_normal.exr', storageFilepath + '_normal.exr')
+                    shutil.move(generatedUndenoisedTargetName + '_denoised.exr',storageFilepath + '_denoised.exr')
+
 
             generateHTMLStatus(htmlData, cacheChanged, input)
     else:
