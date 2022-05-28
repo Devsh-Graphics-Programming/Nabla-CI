@@ -14,17 +14,17 @@ NBL_ERROR_TOLERANCE_COUNT = 64
 NBL_SCENES_INPUTS = [ 
     {
         "input file": Path('@_NBL_SCENES_INPUT_TXT_@'), 
-        "website file": "index.html", 
-        "website ref link": 'https://artifactory.devsh.eu/Ditt/ci/data/references/public/' ,
-        "reference folder": str(Path(str(NBL_CI_WORKING_DIR.absolute()) + '/references/public').absolute()),
-        "storage folder": "/recent/public"
+        "website file": "public/index.html", 
+        "website ref link": 'https://artifactory.devsh.eu/Ditt/ci/data/public/references/' ,
+        "reference folder": str(Path(str(NBL_CI_WORKING_DIR.absolute()) + '/public/references').absolute()),
+        "storage folder": "/public/recent"
     }, 
     {
         "input file": Path('@_NBL_PRIVATE_SCENES_INPUT_TXT_@'), 
-        "website file": "private.html", 
-        "website ref link": 'https://artifactory.devsh.eu/Ditt/ci/data/references/private/' ,
-        "reference folder": str(Path(str(NBL_CI_WORKING_DIR.absolute()) + '/references/private').absolute()),
-        "storage folder": "/recent/private"
+        "website file": "private/index.html", 
+        "website ref link": 'https://artifactory.devsh.eu/Ditt/ci/data/private/references/' ,
+        "reference folder": str(Path(str(NBL_CI_WORKING_DIR.absolute()) + '/private/references').absolute()),
+        "storage folder": "/private/recent"
     }, 
 ]
 CLOSE_TO_ZERO = "0.00001"         
