@@ -2,6 +2,8 @@ import os
 import subprocess
 import shutil
 import filecmp
+from datetime import datetime
+
 from pathlib import *
 
 
@@ -76,8 +78,10 @@ def generateHTMLStatus(_htmlData, _cacheChanged, scenes_input):
     <h2>Ditt Render Scenes job status</h2>
     
     '''
+    
     HTML_BODY += f'''
     <p>Relative error threshold is set to <strong>{float(NBL_ERROR_THRESHOLD)*100.0}%</strong></p>
+    <p>Created at {datetime.now()} </p>
     '''
     if _cacheChanged:
         HTML_BODY += '''
