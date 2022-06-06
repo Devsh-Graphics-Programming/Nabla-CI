@@ -1,0 +1,3 @@
+[submodule "ditt/Ditt-Reference-Renders"]
+	path = ditt/Ditt-Reference-Renders
+	url = git@github.com:Devsh-Graphics-Programming/Ditt-Reference-Renders.git
