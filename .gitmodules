@@ -1,3 +1,4 @@
-[submodule "ditt/Ditt-Reference-Renders"]
-	path = ditt/Ditt-Reference-Renders
+[submodule "22.RaytracedAO/references/private"]
+	path = 22.RaytracedAO/references/private
 	url = git@github.com:Devsh-Graphics-Programming/Ditt-Reference-Renders.git
+	branch = master
