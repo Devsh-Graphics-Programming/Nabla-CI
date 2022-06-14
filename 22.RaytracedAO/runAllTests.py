@@ -7,50 +7,53 @@ from datetime import datetime
 from pathlib import *
 
 
-def get_git_revision_hash() -> str:
-    return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
-
-def get_submodule_revision_hash() -> str:
-    return subprocess.check_output(['git', 'submodule', 'status']).decode('ascii').strip().split()[0]
-
 
 NBL_IMAGEMAGICK_EXE = Path('@_NBL_IMAGEMAGICK_EXE_@')
 NBL_PATHTRACER_EXE = Path('@_NBL_PATHTRACER_EXE_@')
-NBL_ROOT_DIR = Path(NBL_PATHTRACER_EXE.parents[3]).absolute()
+NBL_CI_ROOT = '@_NBL_CI_ROOT_@' + "/22.RaytracedAO"
 NBL_CI_LDS_CACHE_FILENAME = 'LowDiscrepancySequenceCache.bin'
 NBL_ERROR_THRESHOLD = "0.05" #relative error between reference and generated images, value between 1.0 and 0.0
 NBL_ERROR_TOLERANCE_COUNT = 64   
  
+def get_git_revision_hash() -> str:
+    return subprocess.check_output(['git', '-C "NBL_CI_ROOT"',  'rev-parse', 'HEAD']).decode('ascii').strip()
+
+def get_submodule_revision_hash() -> str:
+    return subprocess.check_output(['git', '-C "NBL_CI_ROOT"', 'submodule', 'status']).decode('ascii').strip().split()[0]
+
 class Inputs:
     def __init__(self, 
-                input_file_path: Path,
+                input_file: Path,
                 ref_url: str,
+                diff_imgs_url: str,
                 summary_html_filepath: Path,
                 references_dir: str,
                 diff_images_dir: str,
                 storage_dir: str) -> None:
-        self.input_file_path = input_file_path
+        self.input_file_path = Path(input_file).absolute()
         self.ref_url = ref_url
-        self.summary_html_filepath = summary_html_filepath
-        self.references_dir = references_dir
-        self.diff_images_dir = diff_images_dir
-        self.storage_dir = storage_dir
+        self.diff_imgs_url = diff_imgs_url
+        self.summary_html_filepath = Path(summary_html_filepath).absolute()
+        self.references_dir = Path(references_dir).absolute()
+        self.diff_images_dir = Path(diff_images_dir).absolute()
+        self.storage_dir = Path(storage_dir).absolute()
 
 NBL_SCENES_INPUTS = [ 
     Inputs(
-       Path('@_NBL_SCENES_INPUT_TXT_@'), 
-       "public/index.html", 
-       "https://github.com/Devsh-Graphics-Programming/Nabla-Ci/tree/"+ get_git_revision_hash() ,
-       str(Path(str(NBL_CI_WORKING_DIR.absolute()) + '/public/references').absolute()),
-       "reference folder",
-       "/public/recent"),
-    Inputs(
-        Path('@_NBL_PRIVATE_SCENES_INPUT_TXT_@'), 
-        "private/index.html", 
-        "https://github.com/Devsh-Graphics-Programming/Ditt-Reference-Renders/tree/" + get_submodule_revision_hash(),
-        str(Path(str(NBL_CI_WORKING_DIR.absolute()) + '/private/references').absolute()),
-        "reference folder",
-        "/private/recent") 
+            input_file='@_NBL_SCENES_INPUT_TXT_@', # path to input txt
+            summary_html_filepath=f'{NBL_CI_ROOT}/renders/public/index.html', 
+            ref_url='https://github.com/Devsh-Graphics-Programming/Nabla-Ci/tree/'+ get_git_revision_hash() ,
+            references_dir=f'{NBL_CI_ROOT}/references/public',
+            diff_images_dir=f'{NBL_CI_ROOT}/renders/public/difference-images',
+            storage_dir= f'{NBL_CI_ROOT}renders/public'),
+
+        Inputs(
+            input_file='@_NBL_PRIVATE_SCENES_INPUT_TXT_@', 
+            summary_html_filepath=f'{NBL_CI_ROOT}/renders/private/index.html', 
+            ref_url='https://github.com/Devsh-Graphics-Programming/Ditt-Reference-Renders/tree/' + get_submodule_revision_hash(),
+            references_dir=f'{NBL_CI_ROOT}/references/private',
+            diff_images_dir=f'{NBL_CI_ROOT}/renders/private/difference-images',
+            storage_dir= f'{NBL_CI_ROOT}/renders/private') 
 ]
 CLOSE_TO_ZERO = "0.00001"         
 CI_PASS_STATUS = True
@@ -137,8 +140,8 @@ def generateHTMLStatus(_htmlData, _cacheChanged, scenes_input : Inputs):
             anIndexOfRenderAspect = i + HTML_TUPLE_INPUT_INDEX
 
             aspectRenderData = _htmlRowTuple[anIndexOfRenderAspect]
-            HTML_HYPERLINK_DIFF = scenes_input.ref_url + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_DIFF]
-            HTML_HYPERLINK_REF = scenes_input.ref_url + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_REF]
+            HTML_HYPERLINK_DIFF = scenes_input.ref_url + '/' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_DIFF]
+            HTML_HYPERLINK_REF = scenes_input.ref_url+ '/' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_REF]
             HTML_ROW_BODY += (  '<td scope="col">' + '<a href="' + HTML_HYPERLINK_DIFF + '">' 
                 + aspectRenderData[HTML_R_A_N_D_D_DIFF] + '</a><br/>'
                 '<a href="'+HTML_HYPERLINK_REF+ '">' 
@@ -170,22 +173,22 @@ def get_render_filename(line : str):
     zip = (os.path.splitext(str(Path(" ".join(words[0:-1])).name))[0] + "_") if len(words) > 1 else "" 
     return zip + os.path.splitext(Path(words[-1]).name)[0]
 
-def run_all_tests():
+def run_all_tests(inputParamList):
     if NBL_PATHTRACER_EXE.is_file():
 
         os.chdir(NBL_PATHTRACER_EXE.parent.absolute()) 
 
-        for input in NBL_SCENES_INPUTS:
+        for inputParams in inputParamList:
 
-            if not Path( input.references_dir).is_dir():
-                os.makedirs(input.references_dir)
+            if not inputParams.references_dir.is_dir():
+                os.makedirs(inputParams.references_dir)
 
-            if not Path(input.storage_dir).is_dir():
-                os.makedirs(input.storage_dir)
+            if not inputParams.storage_dir.is_dir():
+                os.makedirs(inputParams.storage_dir)
 
-            NBL_DUMMY_CACHE_CASE = not bool(Path(input.references_dir + '/' + NBL_CI_LDS_CACHE_FILENAME).is_file())
+            NBL_DUMMY_CACHE_CASE = not bool(Path(str(inputParams.references_dir) + '/' + NBL_CI_LDS_CACHE_FILENAME).is_file())
             generatedReferenceCache = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + NBL_CI_LDS_CACHE_FILENAME
-            destinationReferenceCache = input.references_dir + '/' + NBL_CI_LDS_CACHE_FILENAME
+            destinationReferenceCache = str(inputParams.references_dir) + '/' + NBL_CI_LDS_CACHE_FILENAME
 
             sceneDummyRender = '"../ci/dummy_4096spp_128depth.xml"'
             executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + sceneDummyRender + ' -TERMINATE'
@@ -199,9 +202,9 @@ def run_all_tests():
                 cacheChanged = True
                 CI_PASS_STATUS = False
                 # copy?
-            input_filepath = input.input_file_path
+            input_filepath = inputParams.input_file_path
             if not input_filepath.is_file():
-                print(f'Scenes input {input_filepath} does not exist!')
+                print(f'Scenes input {str(input_filepath)} does not exist!')
                 continue
         
             with open(input_filepath.absolute()) as aFile:
@@ -219,7 +222,7 @@ def run_all_tests():
                     scene = line.strip()
 
                     generatedUndenoisedTargetName = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + undenoisedTargetName
-                    destinationReferenceUndenoisedTargetName = input.references_dir + '/' + renderName + '/' + undenoisedTargetName
+                    destinationReferenceUndenoisedTargetName = str(inputParams.references_dir) + '/' + renderName + '/' + undenoisedTargetName
                 
                     # dummy case executes when there is no reference image
                     NBL_DUMMY_RENDER_CASE = not bool(Path(destinationReferenceUndenoisedTargetName + '.exr').is_file())
@@ -246,14 +249,14 @@ def run_all_tests():
                     anIndex = HTML_TUPLE_INPUT_INDEX
                     outputDiffTerminators = ['', '_albedo', '_normal', '_denoised']
                     for diffTerminator in outputDiffTerminators:
-                        imageDiffFilePath = input.storage_dir + '/' + renderName + '-' + renderName + diffTerminator + "_diff.exr"
+                        imageDiffFilePath = str(inputParams.diff_images_dir) + '/' + renderName + diffTerminator + "_diff.exr"
                         imageRefFilepath = destinationReferenceUndenoisedTargetName + diffTerminator + '.exr'
                         imageGenFilepath = generatedUndenoisedTargetName + diffTerminator + '.exr'
 
                         #create difference image for debugging
                         diffImageCommandParams = f' "{imageRefFilepath}" "{imageGenFilepath}" -fx "abs(u-v)" "{imageDiffFilePath}"'
                         executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffImageCommandParams
-                        magickDiffImgProcess = subprocess.run(executor, capture_output=False)
+                        subprocess.run(executor, capture_output=False)
 
                         #calculate the amount of pixels whose relative errors are above NBL_ERROR_THRESHOLD
                         #logic operators in image magick return 1.0 if true, 0.0 if false 
@@ -286,20 +289,20 @@ def run_all_tests():
                         anIndex += 1
                     htmlData.append(htmlRowTuple)
 
-                    storageFilepath = input.storage_dir + '/' + undenoisedTargetName
+                    storageFilepath = str(inputParams.storage_dir) + '/' + undenoisedTargetName
                     shutil.move(generatedUndenoisedTargetName + '.exr', storageFilepath + '.exr')
                     shutil.move(generatedUndenoisedTargetName + '_albedo.exr', storageFilepath + '_albedo.exr')
                     shutil.move(generatedUndenoisedTargetName + '_normal.exr', storageFilepath + '_normal.exr')
                     shutil.move(generatedUndenoisedTargetName + '_denoised.exr',storageFilepath + '_denoised.exr')
 
 
-            generateHTMLStatus(htmlData, cacheChanged, input)
+            generateHTMLStatus(htmlData, cacheChanged, inputParams)
     else:
         print('Path tracer executable does not exist!')
         exit(-1)
 
 if __name__ == '__main__':
-    run_all_tests()
+    run_all_tests(NBL_SCENES_INPUTS)
 
 if not CI_PASS_STATUS:
     exit(-2)

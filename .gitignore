@@ -1,0 +1,4 @@
+22.RaytracedAO/renders/*
+22.RaytracedAO/__pycache__/*
+22.RaytracedAO/references/public/LowDiscrepancySequenceCache.bin
+*.bin
