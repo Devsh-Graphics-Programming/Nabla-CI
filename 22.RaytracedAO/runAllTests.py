@@ -43,6 +43,7 @@ NBL_SCENES_INPUTS = [
             input_file='@_NBL_SCENES_INPUT_TXT_@', # path to input txt
             summary_html_filepath=f'{NBL_CI_ROOT}/renders/public/index.html', 
             ref_url='https://github.com/Devsh-Graphics-Programming/Nabla-Ci/tree/'+ get_git_revision_hash() ,
+            diff_imgs_url = 'https://phabricator.devsh.eu/...',
             references_dir=f'{NBL_CI_ROOT}/references/public',
             diff_images_dir=f'{NBL_CI_ROOT}/renders/public/difference-images',
             storage_dir= f'{NBL_CI_ROOT}renders/public'),
@@ -51,6 +52,7 @@ NBL_SCENES_INPUTS = [
             input_file='@_NBL_PRIVATE_SCENES_INPUT_TXT_@', 
             summary_html_filepath=f'{NBL_CI_ROOT}/renders/private/index.html', 
             ref_url='https://github.com/Devsh-Graphics-Programming/Ditt-Reference-Renders/tree/' + get_submodule_revision_hash(),
+            diff_imgs_url = 'https://phabricator.devsh.eu/...',
             references_dir=f'{NBL_CI_ROOT}/references/private',
             diff_images_dir=f'{NBL_CI_ROOT}/renders/private/difference-images',
             storage_dir= f'{NBL_CI_ROOT}/renders/private') 
@@ -140,8 +142,8 @@ def generateHTMLStatus(_htmlData, _cacheChanged, scenes_input : Inputs):
             anIndexOfRenderAspect = i + HTML_TUPLE_INPUT_INDEX
 
             aspectRenderData = _htmlRowTuple[anIndexOfRenderAspect]
-            HTML_HYPERLINK_DIFF = scenes_input.ref_url + '/' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_DIFF]
-            HTML_HYPERLINK_REF = scenes_input.ref_url+ '/' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_REF]
+            HTML_HYPERLINK_DIFF = scenes_input.diff_imgs_url + '/' + aspectRenderData[HTML_R_A_N_D_D_DIFF]
+            HTML_HYPERLINK_REF = scenes_input.ref_url + '/' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_REF]
             HTML_ROW_BODY += (  '<td scope="col">' + '<a href="' + HTML_HYPERLINK_DIFF + '">' 
                 + aspectRenderData[HTML_R_A_N_D_D_DIFF] + '</a><br/>'
                 '<a href="'+HTML_HYPERLINK_REF+ '">' 
@@ -281,7 +283,7 @@ def run_all_tests(inputParamList):
                             CI_PASS_STATUS = False
                             htmlRowTuple[HTML_TUPLE_PASS_STATUS_INDEX] = False
 
-                        htmlRowTuple[anIndex][HTML_R_A_N_D_D_DIFF] = renderName + '-' + renderName + diffTerminator + "_diff.exr"
+                        htmlRowTuple[anIndex][HTML_R_A_N_D_D_DIFF] = renderName + diffTerminator + "_diff.exr"
                         htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = str(errorPixelCount)
                         htmlRowTuple[anIndex][HTML_R_A_N_D_D_PASS] = DIFF_PASS
                         htmlRowTuple[anIndex][HTML_R_A_N_D_D_REF] = 'Render_' + renderName + diffTerminator + ".exr"
