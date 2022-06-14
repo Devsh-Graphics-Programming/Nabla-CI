@@ -16,12 +16,15 @@ def shell(cmd):
 def CommitPublicReferenceChanges():
     shell(f'git -C "{NBL_CI_DIR}" git add .\references\* ')
     shell(f'git -C "{NBL_CI_DIR}" commit -m "Updated public references"')
+    shell(f'git -C "{NBL_CI_DIR}" push')
+
     #shell(f'git -C "{NBL_CI_DIR}" push')
 
 
 def CommitPrivateReferenceChanges():
     shell(f'git -C "{NBL_CU_REF_DIR}" git add * ')
     shell(f'git -C "{NBL_CU_REF_DIR}" commit -m "Updated private references"')
+    shell(f'git -C "{NBL_CU_REF_DIR}" push')
     #shell(f'git -C "{NBL_CI_DIR}" push')
 
 
