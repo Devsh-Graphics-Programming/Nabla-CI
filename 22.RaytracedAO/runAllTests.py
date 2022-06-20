@@ -23,6 +23,7 @@ class Inputs:
                 input_file: Path,
                 ref_url: str,
                 diff_imgs_url: str,
+                result_imgs_url: str,
                 summary_html_filepath: Path,
                 references_dir: str,
                 diff_images_dir: str,
@@ -30,6 +31,7 @@ class Inputs:
         self.input_file_path = Path(input_file).absolute()
         self.ref_url = ref_url
         self.diff_imgs_url = diff_imgs_url
+        self.result_imgs_url = result_imgs_url
         self.summary_html_filepath = Path(summary_html_filepath).absolute()
         self.references_dir = Path(references_dir).absolute()
         self.diff_images_dir = Path(diff_images_dir).absolute()
@@ -40,7 +42,8 @@ NBL_SCENES_INPUTS = [
             input_file='@_NBL_SCENES_INPUT_TXT_@', # path to input txt
             summary_html_filepath=f'{NBL_CI_ROOT}/renders/public/index.html', 
             ref_url='https://github.com/Devsh-Graphics-Programming/Nabla-Ci/tree/'+ get_git_revision_hash() ,
-            diff_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data',
+            diff_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/public/difference-images',
+            result_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/public',
             references_dir=f'{NBL_CI_ROOT}/references/public',
             diff_images_dir=f'{NBL_CI_ROOT}/renders/public/difference-images',
             storage_dir= f'{NBL_CI_ROOT}/renders/public'),
@@ -49,7 +52,8 @@ NBL_SCENES_INPUTS = [
             input_file='@_NBL_PRIVATE_SCENES_INPUT_TXT_@', 
             summary_html_filepath=f'{NBL_CI_ROOT}/renders/private/index.html', 
             ref_url='https://github.com/Devsh-Graphics-Programming/Ditt-Reference-Renders/tree/' + get_submodule_revision_hash(),
-            diff_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data',
+            diff_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/private/difference-images',
+            result_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/private',
             references_dir=f'{NBL_CI_ROOT}/references/private',
             diff_images_dir=f'{NBL_CI_ROOT}/renders/private/difference-images',
             storage_dir= f'{NBL_CI_ROOT}/renders/private') 
@@ -69,6 +73,7 @@ HTML_R_A_N_D_D_DIFF = 0
 HTML_R_A_N_D_D_ERROR = 1
 HTML_R_A_N_D_D_PASS = 2
 HTML_R_A_N_D_D_REF = 3
+HTML_R_A_N_D_D_RES = 4
 
 def generateHTMLStatus(_htmlData, _cacheChanged, scenes_input : Inputs):
     HTML_BODY = '''
@@ -139,12 +144,13 @@ def generateHTMLStatus(_htmlData, _cacheChanged, scenes_input : Inputs):
             anIndexOfRenderAspect = i + HTML_TUPLE_INPUT_INDEX
 
             aspectRenderData = _htmlRowTuple[anIndexOfRenderAspect]
-            HTML_HYPERLINK_DIFF = scenes_input.diff_imgs_url + '/' + aspectRenderData[HTML_R_A_N_D_D_DIFF]
             HTML_HYPERLINK_REF = scenes_input.ref_url + '/' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_REF]
+            HTML_HYPERLINK_DIFF = scenes_input.diff_imgs_url + '/' + aspectRenderData[HTML_R_A_N_D_D_DIFF]
+            HTML_HYPERLINK_RES = scenes_input.result_imgs_url + '/' + aspectRenderData[HTML_R_A_N_D_D_RES]
             HTML_ROW_BODY += (  '<td scope="col">' + '<a href="' + HTML_HYPERLINK_DIFF + '">' 
                 + aspectRenderData[HTML_R_A_N_D_D_DIFF] + '</a><br/>'
-                '<a href="'+HTML_HYPERLINK_REF+ '">' 
-                + '(reference)</a>'
+                '<a href="'+HTML_HYPERLINK_REF+ '">(reference)</a><br/>'
+                '<a href="'+HTML_HYPERLINK_RES+ '">(result)</a>'
                 '</td>' 
 
                 '<td scope="col">Errors: ' + aspectRenderData[HTML_R_A_N_D_D_ERROR] + '</td>')
@@ -217,7 +223,7 @@ def run_all_tests(inputParamList):
 
             for line in inputLines:
                 if list(line)[0] != ';':
-                    htmlRowTuple = ['', True, ['', '', True, ''], ['', '', True, ''], ['', '', True, ''], ['', '', True, '']]
+                    htmlRowTuple = ['', True, ['', '', True, '', ''], ['', '', True, '', ''], ['', '', True, '', ''], ['', '', True, '', '']]
                     renderName = get_render_filename(line)
                     undenoisedTargetName = 'Render_' + renderName
 
@@ -256,7 +262,7 @@ def run_all_tests(inputParamList):
                         imageGenFilepath = generatedUndenoisedTargetName + diffTerminator + '.exr'
 
                         #create difference image for debugging
-                        diffImageCommandParams = f' "{imageRefFilepath}" "{imageGenFilepath}" -fx "abs(u-v)" "{imageDiffFilePath}"'
+                        diffImageCommandParams = f' "{imageRefFilepath}" "{imageGenFilepath}" -fx "abs(u-v)" -alpha off "{imageDiffFilePath}"'
                         executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffImageCommandParams
                         subprocess.run(executor, capture_output=False)
 
@@ -287,6 +293,7 @@ def run_all_tests(inputParamList):
                         htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = str(errorPixelCount)
                         htmlRowTuple[anIndex][HTML_R_A_N_D_D_PASS] = DIFF_PASS
                         htmlRowTuple[anIndex][HTML_R_A_N_D_D_REF] = 'Render_' + renderName + diffTerminator + ".exr"
+                        htmlRowTuple[anIndex][HTML_R_A_N_D_D_RES] = undenoisedTargetName + diffTerminator + ".exr"
 
                         anIndex += 1
                     htmlData.append(htmlRowTuple)
