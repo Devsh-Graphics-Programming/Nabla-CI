@@ -120,7 +120,7 @@ def update_all_reference_data(inputParamList, commitAndPushReferences):
 if __name__ == '__main__':
     arguments = sys.argv[1:]
     if len(arguments):
-        if arguments[0] == '--commit-and-push'
+        if arguments[0] == '--commit-and-push':
             update_all_reference_data(NBL_SCENES_INPUTS, True)
     else:
         update_all_reference_data(NBL_SCENES_INPUTS, False)
