@@ -7,22 +7,21 @@ from pathlib import *
 import sys
 
 NBL_PATHTRACER_EXE = Path('@_NBL_PATHTRACER_EXE_@')
-NBL_CI_ROOT = '@_NBL_CI_ROOT_@' + "/22.RaytracedAO"
 NBL_CI_LDS_CACHE_FILENAME = 'LowDiscrepancySequenceCache.bin'
  
-NBL_CI_DIR = '@_NBL_CI_ROOT_@'
-NBL_CU_REF_DIR = NBL_CI_DIR + "/22.RaytracedAO/renders/private"
+NBL_CI_ROOT = '@_NBL_CI_ROOT_@' + "/22.RaytracedAO"
+NBL_CU_REF_DIR = NBL_CI_ROOT + "/references/private"
 
 def shell(cmd):
     subprocess.run(cmd)
 
 def commitAndPushPublicReferences():
-    shell(f'git -C "{NBL_CI_DIR}" git add .\references\* ')
-    shell(f'git -C "{NBL_CI_DIR}" commit -m "Updated public references"')
-    shell(f'git -C "{NBL_CI_DIR}" push')
+    shell(f'git -C "{NBL_CI_ROOT}" add "{NBL_CI_ROOT}/references/"')
+    shell(f'git -C "{NBL_CI_ROOT}" commit -m "Updated public references"')
+    shell(f'git -C "{NBL_CI_ROOT}" push')
 
 def commitAndPushPrivateReferences():
-    shell(f'git -C "{NBL_CU_REF_DIR}" git add * ')
+    shell(f'git -C "{NBL_CU_REF_DIR}" add "{NBL_CU_REF_DIR}/"')
     shell(f'git -C "{NBL_CU_REF_DIR}" commit -m "Updated private references"')
     shell(f'git -C "{NBL_CU_REF_DIR}" push')
  
@@ -110,9 +109,9 @@ def update_all_reference_data(inputParamList, commitAndPushReferences):
                     shutil.move(generatedUndenoisedTargetName + '_denoised.exr',storageFilepath + '_denoised.exr')
         
         if commitAndPushReferences:
-            commitAndPushPublicReferences()
             if Path(NBL_CU_REF_DIR).exists():
                 commitAndPushPrivateReferences()
+            commitAndPushPublicReferences()
     else:
         print('Path tracer executable does not exist!')
         exit(-1)
