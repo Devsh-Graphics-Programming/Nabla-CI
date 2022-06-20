@@ -263,7 +263,7 @@ def run_all_tests(inputParamList):
                         #calculate the amount of pixels whose relative errors are above NBL_ERROR_THRESHOLD
                         #logic operators in image magick return 1.0 if true, 0.0 if false 
                         #image magick convert -compose divide does not work with HDRI, this requiring use of -fx 
-                        diffValueCommandParams = f" {imageRefFilepath} {imageGenFilepath}  -define histogram:unique-colors=true -fx \"(min(u,v)>{CLOSE_TO_ZERO})?((abs(u-v)/min(u,v))>{NBL_ERROR_THRESHOLD}):(max(u,v)<={CLOSE_TO_ZERO})\" -format %c histogram:info:" 
+                        diffValueCommandParams = f" {imageRefFilepath} {imageGenFilepath}  -define histogram:unique-colors=true -fx \"(min(u,v)>{CLOSE_TO_ZERO})?((abs(u-v)/min(u,v))>{NBL_ERROR_THRESHOLD}):(max(u,v)>{CLOSE_TO_ZERO})\" -format %c histogram:info:" 
                         executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffValueCommandParams
                         magickDiffValProcess = subprocess.run(executor, capture_output=True)
                     
