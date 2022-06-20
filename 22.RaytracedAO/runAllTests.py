@@ -3,10 +3,7 @@ import subprocess
 import shutil
 import filecmp
 from datetime import datetime
-
 from pathlib import *
-
-
 
 NBL_IMAGEMAGICK_EXE = Path('@_NBL_IMAGEMAGICK_EXE_@')
 NBL_PATHTRACER_EXE = Path('@_NBL_PATHTRACER_EXE_@')
@@ -16,10 +13,10 @@ NBL_ERROR_THRESHOLD = "0.05" #relative error between reference and generated ima
 NBL_ERROR_TOLERANCE_COUNT = 64   
  
 def get_git_revision_hash() -> str:
-    return subprocess.check_output(['git', '-C "NBL_CI_ROOT"',  'rev-parse', 'HEAD']).decode('ascii').strip()
+    return subprocess.check_output(f'git -C "{NBL_CI_ROOT}" rev-parse HEAD').decode('ascii').strip()
 
 def get_submodule_revision_hash() -> str:
-    return subprocess.check_output(['git', '-C "NBL_CI_ROOT"', 'submodule', 'status']).decode('ascii').strip().split()[0]
+    return subprocess.check_output(f'git -C "{NBL_CI_ROOT}" submodule status').decode('ascii').strip().split()[0]
 
 class Inputs:
     def __init__(self, 
@@ -46,7 +43,7 @@ NBL_SCENES_INPUTS = [
             diff_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data',
             references_dir=f'{NBL_CI_ROOT}/references/public',
             diff_images_dir=f'{NBL_CI_ROOT}/renders/public/difference-images',
-            storage_dir= f'{NBL_CI_ROOT}renders/public'),
+            storage_dir= f'{NBL_CI_ROOT}/renders/public'),
 
         Inputs(
             input_file='@_NBL_PRIVATE_SCENES_INPUT_TXT_@', 
@@ -187,6 +184,9 @@ def run_all_tests(inputParamList):
 
             if not inputParams.storage_dir.is_dir():
                 os.makedirs(inputParams.storage_dir)
+                
+            if not inputParams.diff_images_dir.is_dir():
+                os.makedirs(inputParams.diff_images_dir)
 
             NBL_DUMMY_CACHE_CASE = not bool(Path(str(inputParams.references_dir) + '/' + NBL_CI_LDS_CACHE_FILENAME).is_file())
             generatedReferenceCache = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + NBL_CI_LDS_CACHE_FILENAME
