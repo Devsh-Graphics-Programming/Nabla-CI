@@ -154,7 +154,7 @@ def generateHTMLStatus(_htmlData, _cacheChanged, scenes_input : Inputs):
                 '<a href="'+HTML_HYPERLINK_RES+ '">(result)</a>'
                 '</td>' 
 
-                '<td scope="col">Errors: ' + aspectRenderData[HTML_R_A_N_D_D_ERROR] + '</td>')
+                '<td scope="col">' + aspectRenderData[HTML_R_A_N_D_D_ERROR] + '</td>')
             if aspectRenderData[HTML_R_A_N_D_D_PASS]:
                 HTML_ROW_BODY += '<td scope="col" style="color: green;">PASSED</td>'
             else:
@@ -284,8 +284,8 @@ def run_all_tests(inputParamList):
                             executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffValueCommandParams
                             magickDiffValProcess = subprocess.run(executor, capture_output=True)
                             similiarity = float(magickDiffValProcess.stderr.decode().strip())
-                            DIFF_PASS = 1.0-similiarity > float(NBL_ERROR_THRESHOLD)
-                            htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = "similiarity: "+ str(similiarity*100.0) + "%" 
+                            DIFF_PASS = 1.0-similiarity <= float(NBL_ERROR_THRESHOLD)
+                            htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = "Similiarity: "+ str(similiarity*100.0) + "%" 
                         else:
                               #create difference image for debugging
                             diffImageCommandParams = f' "{imageRefFilepath}" "{imageGenFilepath}" -fx "abs(u-v)" -alpha off "{imageDiffFilePath}"'
@@ -306,9 +306,7 @@ def run_all_tests(inputParamList):
 
                             # threshold for an error, for now we fail CI when the difference is greater then NBL_ERROR_TOLERANCE_COUNT
                             DIFF_PASS = float(errorPixelCount) <= NBL_ERROR_TOLERANCE_COUNT
-
-                            htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = str(errorPixelCount)
-                            htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = str(errorPixelCount)
+                            htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = "Errors: " + str(errorPixelCount)
                        
                         if not DIFF_PASS:
                             CI_PASS_STATUS = False
