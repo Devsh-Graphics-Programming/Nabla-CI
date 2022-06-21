@@ -68,10 +68,11 @@ def update_all_reference_data(inputParamList, commitAndPushReferences):
             sceneDummyRender = '"../ci/dummy_4096spp_128depth.xml"'
             executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + sceneDummyRender + ' -TERMINATE'
             subprocess.run(executor, capture_output=True)
-                
+            
             shutil.copyfile(generatedReferenceCache, destinationReferenceCache)
-            ldscachehashexec = f'git hash-object {NBL_CI_LDS_CACHE_FILENAME} >{str(inputParams.references_dir)}/LDSCacheHash.txt'
-            subprocess.run(ldscachehashexec)
+            ldscachehashexec = f'git hash-object {NBL_CI_LDS_CACHE_FILENAME}'
+            with open(f'{str(inputParams.references_dir)}/LDSCacheHash.txt', 'w+') as file:
+             file.write(subprocess.run(ldscachehashexec, capture_output=True).stdout.decode())
 
             input_filepath = inputParams.input_file_path
             if not input_filepath.is_file():

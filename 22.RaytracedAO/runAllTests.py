@@ -190,8 +190,9 @@ def cmp_files(inputParams, destinationReferenceCache, generatedReferenceCache, c
     res = hgen == href
     if cmpSavedHash:
         file = str(inputParams.references_dir)+'/LDSCacheHash.txt'
-        with open(file, "r") as f:
-            res = res and hgen == f.readline().strip()
+        if Path(file).is_file():
+            with open(file, "r") as f:
+                res = res and hgen == f.readline().strip()
     return res
 
 
@@ -282,8 +283,8 @@ def run_all_tests(inputParamList):
                             diffValueCommandParams = f' compare -metric SSIM "{imageRefFilepath}" "{imageGenFilepath}" "{imageDiffFilePath}"'
                             executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffValueCommandParams
                             magickDiffValProcess = subprocess.run(executor, capture_output=True)
-                            similiarity = float(magickDiffValProcess.stdout.decode().splitlines())
-                            DIFF_PASS = 1.0-similiarity > NBL_ERROR_THRESHOLD
+                            similiarity = float(magickDiffValProcess.stderr.decode().strip())
+                            DIFF_PASS = 1.0-similiarity > float(NBL_ERROR_THRESHOLD)
                             htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = "similiarity: "+ str(similiarity*100.0) + "%" 
                         else:
                               #create difference image for debugging
