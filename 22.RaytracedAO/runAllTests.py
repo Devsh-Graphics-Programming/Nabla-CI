@@ -1,3 +1,4 @@
+from operator import eq
 import os
 import subprocess
 import shutil
@@ -178,6 +179,22 @@ def get_render_filename(line : str):
     zip = (os.path.splitext(str(Path(" ".join(words[0:-1])).name))[0] + "_") if len(words) > 1 else "" 
     return zip + os.path.splitext(Path(words[-1]).name)[0]
 
+
+def cmp_files(inputParams, destinationReferenceCache, generatedReferenceCache, cmpSavedHash=False, cmpByteByByte = False):
+    if cmpByteByByte:
+        return  filecmp.cmp(destinationReferenceCache, generatedReferenceCache)
+    executor1 = f'git hash-object {generatedReferenceCache}'
+    executor2 = f'git hash-object {destinationReferenceCache}'
+    hgen = subprocess.run(executor1, capture_output=True).stdout.decode().strip()
+    href = subprocess.run(executor2, capture_output=True).stdout.decode().strip()
+    res = hgen == href
+    if cmpSavedHash:
+        file = str(inputParams.references_dir)+'/LDSCacheHash.txt'
+        with open(file, "r") as f:
+            res = res and hgen == f.readline().strip()
+    return res
+
+
 def run_all_tests(inputParamList):
     if NBL_PATHTRACER_EXE.is_file():
 
@@ -205,7 +222,7 @@ def run_all_tests(inputParamList):
             # if we start the path tracer first time
             if NBL_DUMMY_CACHE_CASE:
                 shutil.copyfile(generatedReferenceCache, destinationReferenceCache)
-            elif not filecmp.cmp(destinationReferenceCache, generatedReferenceCache):
+            elif not cmp_files(inputParams,destinationReferenceCache, generatedReferenceCache,True):
                 # fail CI if the reference cache is different that current generated cache
                 cacheChanged = True
                 CI_PASS_STATUS = False
@@ -249,7 +266,7 @@ def run_all_tests(inputParamList):
                     executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + scene + ' -TERMINATE'
                     subprocess.run(executor, capture_output=True)
 
-                    if not filecmp.cmp(destinationReferenceCache, generatedReferenceCache):
+                    if not cmp_files(inputParams,destinationReferenceCache, generatedReferenceCache):
                         # fail CI if the reference cache is different that current generated cache
                         cacheChanged = True
                         CI_PASS_STATUS = False
@@ -261,36 +278,42 @@ def run_all_tests(inputParamList):
                         imageRefFilepath = destinationReferenceUndenoisedTargetName + diffTerminator + '.exr'
                         imageGenFilepath = generatedUndenoisedTargetName + diffTerminator + '.exr'
 
-                        #create difference image for debugging
-                        diffImageCommandParams = f' "{imageRefFilepath}" "{imageGenFilepath}" -fx "abs(u-v)" -alpha off "{imageDiffFilePath}"'
-                        executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffImageCommandParams
-                        subprocess.run(executor, capture_output=False)
+                        if diffTerminator =='_denoised':
+                            diffValueCommandParams = f' compare -metric SSIM "{imageRefFilepath}" "{imageGenFilepath}" "{imageDiffFilePath}"'
+                            executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffValueCommandParams
+                            magickDiffValProcess = subprocess.run(executor, capture_output=True)
+                            similiarity = float(magickDiffValProcess.stdout.decode().splitlines())
+                            DIFF_PASS = 1.0-similiarity > NBL_ERROR_THRESHOLD
+                            htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = "similiarity: "+ str(similiarity*100.0) + "%" 
+                        else:
+                              #create difference image for debugging
+                            diffImageCommandParams = f' "{imageRefFilepath}" "{imageGenFilepath}" -fx "abs(u-v)" -alpha off "{imageDiffFilePath}"'
+                            executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffImageCommandParams
+                            subprocess.run(executor, capture_output=False)
 
-                        #calculate the amount of pixels whose relative errors are above NBL_ERROR_THRESHOLD
-                        #logic operators in image magick return 1.0 if true, 0.0 if false 
-                        #image magick convert -compose divide does not work with HDRI, this requiring use of -fx 
-                        diffValueCommandParams = f" {imageRefFilepath} {imageGenFilepath}  -define histogram:unique-colors=true -fx \"(min(u,v)>{CLOSE_TO_ZERO})?((abs(u-v)/min(u,v))>{NBL_ERROR_THRESHOLD}):(max(u,v)>{CLOSE_TO_ZERO})\" -format %c histogram:info:" 
-                        executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffValueCommandParams
-                        magickDiffValProcess = subprocess.run(executor, capture_output=True)
-                    
-                        #first histogram line is the amount of black pixels - the correct ones
-                        #second (and last) line is amount of white - pixels whose rel err is above NBL_ERROR_THRESHOLD
-                        histogramOutputLines = magickDiffValProcess.stdout.decode().splitlines()
-                        errorPixelCount = histogramOutputLines[-1].split()[0][:-1] if len(histogramOutputLines) > 1 else "0"
+                            #calculate the amount of pixels whose relative errors are above NBL_ERROR_THRESHOLD
+                            #logic operators in image magick return 1.0 if true, 0.0 if false 
+                            #image magick convert -compose divide does not work with HDRI, this requiring use of -fx 
+                            diffValueCommandParams = f" {imageRefFilepath} {imageGenFilepath}  -define histogram:unique-colors=true -fx \"(min(u,v)>{CLOSE_TO_ZERO})?((abs(u-v)/min(u,v))>{NBL_ERROR_THRESHOLD}):(max(u,v)>{CLOSE_TO_ZERO})\" -format %c histogram:info:" 
+                            executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffValueCommandParams
+                            magickDiffValProcess = subprocess.run(executor, capture_output=True)
+                        
+                            #first histogram line is the amount of black pixels - the correct ones
+                            #second (and last) line is amount of white - pixels whose rel err is above NBL_ERROR_THRESHOLD
+                            histogramOutputLines = magickDiffValProcess.stdout.decode().splitlines()
+                            errorPixelCount = histogramOutputLines[-1].split()[0][:-1] if len(histogramOutputLines) > 1 else "0"
 
-                        #diffValueFilepath = input.references_dir+ '/' + renderName + '/' + renderName + diffTerminator + '_diff.txt'
-                        #diffValueFile = open(diffValueFilepath, "w")
-                        #diffValueFile.write('difference error: ' + str(errorPixelCount))
-                        #diffValueFile.close()
+                            # threshold for an error, for now we fail CI when the difference is greater then NBL_ERROR_TOLERANCE_COUNT
+                            DIFF_PASS = float(errorPixelCount) <= NBL_ERROR_TOLERANCE_COUNT
 
-                        # threshold for an error, for now we fail CI when the difference is greater then NBL_ERROR_TOLERANCE_COUNT
-                        DIFF_PASS = float(errorPixelCount) <= NBL_ERROR_TOLERANCE_COUNT
+                            htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = str(errorPixelCount)
+                            htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = str(errorPixelCount)
+                       
                         if not DIFF_PASS:
                             CI_PASS_STATUS = False
                             htmlRowTuple[HTML_TUPLE_PASS_STATUS_INDEX] = False
 
                         htmlRowTuple[anIndex][HTML_R_A_N_D_D_DIFF] = renderName + diffTerminator + "_diff.exr"
-                        htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = str(errorPixelCount)
                         htmlRowTuple[anIndex][HTML_R_A_N_D_D_PASS] = DIFF_PASS
                         htmlRowTuple[anIndex][HTML_R_A_N_D_D_REF] = 'Render_' + renderName + diffTerminator + ".exr"
                         htmlRowTuple[anIndex][HTML_R_A_N_D_D_RES] = undenoisedTargetName + diffTerminator + ".exr"

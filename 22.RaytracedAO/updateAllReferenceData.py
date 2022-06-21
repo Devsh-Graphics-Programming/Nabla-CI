@@ -70,7 +70,9 @@ def update_all_reference_data(inputParamList, commitAndPushReferences):
             subprocess.run(executor, capture_output=True)
                 
             shutil.copyfile(generatedReferenceCache, destinationReferenceCache)
-         
+            ldscachehashexec = f'git hash-object {NBL_CI_LDS_CACHE_FILENAME} >{str(inputParams.references_dir)}/LDSCacheHash.txt'
+            subprocess.run(ldscachehashexec)
+
             input_filepath = inputParams.input_file_path
             if not input_filepath.is_file():
                 print(f'Scenes input {str(input_filepath)} does not exist!')
