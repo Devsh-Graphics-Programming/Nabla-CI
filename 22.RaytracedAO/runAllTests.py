@@ -41,7 +41,7 @@ NBL_SCENES_INPUTS = [
     Inputs(
             input_file='@_NBL_SCENES_INPUT_TXT_@', # path to input txt
             summary_html_filepath=f'{NBL_CI_ROOT}/renders/public/index.html', 
-            ref_url='https://github.com/Devsh-Graphics-Programming/Nabla-Ci/tree/'+ get_git_revision_hash() ,
+            ref_url='https://github.com/Devsh-Graphics-Programming/Nabla-Ci/tree/'+ get_git_revision_hash() + '/22.RaytracedAO/references/public',
             diff_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/public/difference-images',
             result_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/public',
             references_dir=f'{NBL_CI_ROOT}/references/public',
