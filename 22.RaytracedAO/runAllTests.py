@@ -123,6 +123,11 @@ def htmlFoot(_cacheChanged : bool, scenes_input : Inputs):
         HTML += '''
         <h2 style="color: red;">FAILED PASS: Low Discrepancy Sequence Cache has been overwritten by a new one!</h2>
         '''
+    else:
+        executor = f'git hash-object {scenes_input.references_dir}/{NBL_CI_LDS_CACHE_FILENAME}'
+        hash = subprocess.run(executor, capture_output=True).stdout.decode().strip()
+        HTML += f'''
+        <h2 style="color: green;">LDS Cache hash: {hash}</h2>'''
     HTML += '''
     </body>
     </html>
