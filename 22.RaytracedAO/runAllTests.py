@@ -286,6 +286,7 @@ def run_all_tests(inputParamList):
                                 if not DIFF_PASS:
                                     ci_pass_status = False
                                     PASSED_ALL = False
+                                print (f'\t\t{renderName}{diffTerminator}   {"PASSED" if DIFF_PASS else "FAILED"}')
 
                             except Exception as ex:
                                 
@@ -302,6 +303,7 @@ def run_all_tests(inputParamList):
                         ''' + ' '.join(HTML_CELLS)  + '''
                         </tr>
                         '''
+                        print (f'Overall {renderName}   {"PASSED" if PASSED_ALL else "FAILED"}')
 
 
                         storageFilepath = str(inputParams.storage_dir) + '/' + undenoisedTargetName
