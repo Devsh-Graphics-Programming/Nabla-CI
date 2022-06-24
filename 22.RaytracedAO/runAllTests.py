@@ -63,21 +63,8 @@ CLOSE_TO_ZERO = "0.00001"
 CI_PASS_STATUS = True
 
 
-HTML_TUPLE_RENDER_INDEX = 0
-HTML_TUPLE_PASS_STATUS_INDEX = 1
-HTML_TUPLE_INPUT_INDEX = 2
-HTML_TUPLE_ALBEDO_INDEX = 3
-HTML_TUPLE_NORMAL_INDEX = 4
-HTML_TUPLE_DENOISED_INDEX = 5
-
-HTML_R_A_N_D_D_DIFF = 0
-HTML_R_A_N_D_D_ERROR = 1
-HTML_R_A_N_D_D_PASS = 2
-HTML_R_A_N_D_D_REF = 3
-HTML_R_A_N_D_D_RES = 4
-
-def generateHTMLStatus(_htmlData, _cacheChanged, scenes_input : Inputs):
-    HTML_BODY = '''
+def htmlHead(scenes_input: Inputs):
+    HTML = '''
     <!DOCTYPE html>
     <html>
     <head>
@@ -103,23 +90,17 @@ def generateHTMLStatus(_htmlData, _cacheChanged, scenes_input : Inputs):
         border: 1px solid black;
     }
     </style>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     </head>
     <body>
     
     <h2>Ditt Render Scenes job status</h2>
-    
     '''
-    
-    HTML_BODY += f'''
+    HTML += f'''
     <p>Relative error threshold is set to <strong>{float(NBL_ERROR_THRESHOLD)*100.0}%</strong></p>
     <p>Created at {datetime.now()} </p>
-    '''
-    if _cacheChanged:
-        HTML_BODY += '''
-        <h2 style="color: red;">FAILED PASS: Low Discrepancy Sequence Cache has been overwritten by a new one!</h2>
-        
-        '''
-    HTML_BODY += '''
     <table>
       <tr>
         <th>Render</th>
@@ -130,48 +111,24 @@ def generateHTMLStatus(_htmlData, _cacheChanged, scenes_input : Inputs):
         <th colspan="3" scope="colgroup">Denoised</th>
       </tr>
     '''
+    htmlFile = open(scenes_input.summary_html_filepath, "w+")
+    htmlFile.write(HTML)
 
-    for _htmlRowTuple in _htmlData:
-        HTML_ROW_BODY = '''
-        <tr>
-          <td>''' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '</td>'
+    return HTML
 
-        if _htmlRowTuple[HTML_TUPLE_PASS_STATUS_INDEX]:
-            HTML_ROW_BODY += '<td style="color: green;">PASSED</td>'
-        else:
-            HTML_ROW_BODY += '<td style="color: red;">FAILED</td>'
+def htmlFoot(_cacheChanged : bool, scenes_input : Inputs):
+    HTML = '</table>'
 
-        for i in range(4):
-            anIndexOfRenderAspect = i + HTML_TUPLE_INPUT_INDEX
-
-            aspectRenderData = _htmlRowTuple[anIndexOfRenderAspect]
-            HTML_HYPERLINK_REF = scenes_input.ref_url + '/' + _htmlRowTuple[HTML_TUPLE_RENDER_INDEX] + '/' + aspectRenderData[HTML_R_A_N_D_D_REF]
-            HTML_HYPERLINK_DIFF = scenes_input.diff_imgs_url + '/' + aspectRenderData[HTML_R_A_N_D_D_DIFF]
-            HTML_HYPERLINK_RES = scenes_input.result_imgs_url + '/' + aspectRenderData[HTML_R_A_N_D_D_RES]
-            HTML_ROW_BODY += (  '<td scope="col">' + '<a href="' + HTML_HYPERLINK_DIFF + '">' 
-                + aspectRenderData[HTML_R_A_N_D_D_DIFF] + '</a><br/>'
-                '<a href="'+HTML_HYPERLINK_REF+ '">(reference)</a><br/>'
-                '<a href="'+HTML_HYPERLINK_RES+ '">(result)</a>'
-                '</td>' 
-
-                '<td scope="col">' + aspectRenderData[HTML_R_A_N_D_D_ERROR] + '</td>')
-            if aspectRenderData[HTML_R_A_N_D_D_PASS]:
-                HTML_ROW_BODY += '<td scope="col" style="color: green;">PASSED</td>'
-            else:
-                HTML_ROW_BODY += '<td scope="col" style="color: red;">FAILED</td>'
-        HTML_ROW_BODY += '</tr>'
-
-        HTML_BODY += HTML_ROW_BODY
-
-    HTML_BODY += '''
-    </table>
+    if _cacheChanged:
+        HTML += '''
+        <h2 style="color: red;">FAILED PASS: Low Discrepancy Sequence Cache has been overwritten by a new one!</h2>
+        '''
+    HTML += '''
     </body>
     </html>
     '''
-
-    htmlFile = open(scenes_input.summary_html_filepath, "w+")
-    htmlFile.write(HTML_BODY)
-    htmlFile.close()
+    htmlFile = open(scenes_input.summary_html_filepath, "a")
+    htmlFile.write(HTML)
 
 
 def get_render_filename(line : str):
@@ -197,12 +154,13 @@ def cmp_files(inputParams, destinationReferenceCache, generatedReferenceCache, c
 
 
 def run_all_tests(inputParamList):
+    ci_pass_status = True
     if NBL_PATHTRACER_EXE.is_file():
 
         os.chdir(NBL_PATHTRACER_EXE.parent.absolute()) 
 
         for inputParams in inputParamList:
-
+            
             if not inputParams.references_dir.is_dir():
                 os.makedirs(inputParams.references_dir)
 
@@ -215,6 +173,7 @@ def run_all_tests(inputParamList):
             NBL_DUMMY_CACHE_CASE = not bool(Path(str(inputParams.references_dir) + '/' + NBL_CI_LDS_CACHE_FILENAME).is_file())
             generatedReferenceCache = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + NBL_CI_LDS_CACHE_FILENAME
             destinationReferenceCache = str(inputParams.references_dir) + '/' + NBL_CI_LDS_CACHE_FILENAME
+            cacheChanged = False
 
             sceneDummyRender = '"../ci/dummy_4096spp_128depth.xml"'
             executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + sceneDummyRender + ' -TERMINATE'
@@ -223,11 +182,12 @@ def run_all_tests(inputParamList):
             # if we start the path tracer first time
             if NBL_DUMMY_CACHE_CASE:
                 shutil.copyfile(generatedReferenceCache, destinationReferenceCache)
-            elif not cmp_files(inputParams,destinationReferenceCache, generatedReferenceCache,True):
-                # fail CI if the reference cache is different that current generated cache
+            # fail CI if the reference cache is different that current generated cache
+            elif not cmp_files(inputParams,destinationReferenceCache, generatedReferenceCache):
                 cacheChanged = True
-                CI_PASS_STATUS = False
-                # copy?
+                ci_pass_status = False
+                continue
+
             input_filepath = inputParams.input_file_path
             if not input_filepath.is_file():
                 print(f'Scenes input {str(input_filepath)} does not exist!')
@@ -236,104 +196,131 @@ def run_all_tests(inputParamList):
             with open(input_filepath.absolute()) as aFile:
                 inputLines = aFile.readlines()
 
-            htmlData = []
-            cacheChanged = False
-
+            htmlHead(inputParams)
             for line in inputLines:
                 if list(line)[0] != ';':
-                    htmlRowTuple = ['', True, ['', '', True, '', ''], ['', '', True, '', ''], ['', '', True, '', ''], ['', '', True, '', '']]
-                    renderName = get_render_filename(line)
-                    undenoisedTargetName = 'Render_' + renderName
+                    try:
+                        renderName = get_render_filename(line)
+                        undenoisedTargetName = 'Render_' + renderName
+                       
+                        scene = line.strip()
 
-                    scene = line.strip()
+                        generatedUndenoisedTargetName = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + undenoisedTargetName
+                        destinationReferenceUndenoisedTargetName = str(inputParams.references_dir) + '/' + renderName + '/' + undenoisedTargetName
+                    
+                        # dummy case executes when there is no reference image
+                        NBL_DUMMY_RENDER_CASE = not bool(Path(destinationReferenceUndenoisedTargetName + '.exr').is_file())
+                        # if we render first time a scene then we need to have a reference of this scene for following ci checks
+                        if NBL_DUMMY_RENDER_CASE:
 
-                    generatedUndenoisedTargetName = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + undenoisedTargetName
-                    destinationReferenceUndenoisedTargetName = str(inputParams.references_dir) + '/' + renderName + '/' + undenoisedTargetName
-                
-                    # dummy case executes when there is no reference image
-                    NBL_DUMMY_RENDER_CASE = not bool(Path(destinationReferenceUndenoisedTargetName + '.exr').is_file())
-                    # if we render first time a scene then we need to have a reference of this scene for following ci checks
-                    if NBL_DUMMY_RENDER_CASE:
+                            HTML = f'''<tr><td>{renderName}</td>
+                            <td style="color: orange;">PASSED</td>
+                            <td colspan="12"> no references </td>
+                            '''
+                            htmlFile = open(inputParams.summary_html_filepath, "a")
+                            htmlFile.write(HTML)
+                            continue
+
                         executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + scene + ' -TERMINATE'
                         subprocess.run(executor, capture_output=True)
-                        if not Path(destinationReferenceUndenoisedTargetName).parent.is_dir():
-                            os.makedirs(str(Path(destinationReferenceUndenoisedTargetName).parent.absolute()))
-                        shutil.copyfile(generatedUndenoisedTargetName + '.exr', destinationReferenceUndenoisedTargetName + '.exr')
-                        shutil.copyfile(generatedUndenoisedTargetName + '_albedo.exr', destinationReferenceUndenoisedTargetName + '_albedo.exr')
-                        shutil.copyfile(generatedUndenoisedTargetName + '_normal.exr', destinationReferenceUndenoisedTargetName + '_normal.exr')
-                        shutil.copyfile(generatedUndenoisedTargetName + '_denoised.exr',destinationReferenceUndenoisedTargetName + '_denoised.exr')
 
-                    htmlRowTuple[HTML_TUPLE_RENDER_INDEX] = renderName
-                    executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + scene + ' -TERMINATE'
-                    subprocess.run(executor, capture_output=True)
-
-                    if not cmp_files(inputParams,destinationReferenceCache, generatedReferenceCache):
                         # fail CI if the reference cache is different that current generated cache
-                        cacheChanged = True
-                        CI_PASS_STATUS = False
+                    
+                        outputDiffTerminators = ['', '_albedo', '_normal', '_denoised']
+                        HTML_CELLS = []
+                        PASSED_ALL = True
+                        storageFilepath = str(inputParams.storage_dir) + '/' + undenoisedTargetName
 
-                    anIndex = HTML_TUPLE_INPUT_INDEX
-                    outputDiffTerminators = ['', '_albedo', '_normal', '_denoised']
-                    for diffTerminator in outputDiffTerminators:
-                        imageDiffFilePath = str(inputParams.diff_images_dir) + '/' + renderName + diffTerminator + "_diff.exr"
-                        imageRefFilepath = destinationReferenceUndenoisedTargetName + diffTerminator + '.exr'
-                        imageGenFilepath = generatedUndenoisedTargetName + diffTerminator + '.exr'
+                        for diffTerminator in outputDiffTerminators:
+                            try:
+                                imageDiffFilePath = str(inputParams.diff_images_dir) + '/' + renderName + diffTerminator + "_diff.exr"
+                                imageRefFilepath = destinationReferenceUndenoisedTargetName + diffTerminator + '.exr'
+                                imageGenFilepath = generatedUndenoisedTargetName + diffTerminator + '.exr'
 
-                        if diffTerminator =='_denoised':
-                            diffValueCommandParams = f' compare -metric SSIM "{imageRefFilepath}" "{imageGenFilepath}" "{imageDiffFilePath}"'
-                            executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffValueCommandParams
-                            magickDiffValProcess = subprocess.run(executor, capture_output=True)
-                            similiarity = float(magickDiffValProcess.stderr.decode().strip())
-                            DIFF_PASS = 1.0-similiarity <= float(NBL_ERROR_THRESHOLD)
-                            htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = "Similiarity: "+ str(similiarity*100.0) + "%" 
-                        else:
-                              #create difference image for debugging
-                            diffImageCommandParams = f' "{imageRefFilepath}" "{imageGenFilepath}" -fx "abs(u-v)" -alpha off "{imageDiffFilePath}"'
-                            executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffImageCommandParams
-                            subprocess.run(executor, capture_output=False)
+                                if diffTerminator =='_denoised':
+                                    diffValueCommandParams = f' compare -metric SSIM "{imageRefFilepath}" "{imageGenFilepath}" "{imageDiffFilePath}"'
+                                    executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffValueCommandParams
+                                    magickDiffValProcess = subprocess.run(executor, capture_output=True)
+                                    similiarity = float(magickDiffValProcess.stderr.decode().strip())
+                                    DIFF_PASS = 1.0-similiarity <= float(NBL_ERROR_THRESHOLD)
+                                    TAB3 = "Similiarity: "+ str(similiarity*100.0) + "%" 
+                                else:
+                                    #create difference image for debugging
+                                    diffImageCommandParams = f' "{imageRefFilepath}" "{imageGenFilepath}" -fx "abs(u-v)" -alpha off "{imageDiffFilePath}"'
+                                    executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffImageCommandParams
+                                    subprocess.run(executor, capture_output=False)
 
-                            #calculate the amount of pixels whose relative errors are above NBL_ERROR_THRESHOLD
-                            #logic operators in image magick return 1.0 if true, 0.0 if false 
-                            #image magick convert -compose divide does not work with HDRI, this requiring use of -fx 
-                            diffValueCommandParams = f" {imageRefFilepath} {imageGenFilepath}  -define histogram:unique-colors=true -fx \"(min(u,v)>{CLOSE_TO_ZERO})?((abs(u-v)/min(u,v))>{NBL_ERROR_THRESHOLD}):(max(u,v)>{CLOSE_TO_ZERO})\" -format %c histogram:info:" 
-                            executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffValueCommandParams
-                            magickDiffValProcess = subprocess.run(executor, capture_output=True)
+                                    #calculate the amount of pixels whose relative errors are above NBL_ERROR_THRESHOLD
+                                    #logic operators in image magick return 1.0 if true, 0.0 if false 
+                                    #image magick convert -compose divide does not work with HDRI, this requiring use of -fx 
+                                    diffValueCommandParams = f" {imageRefFilepath} {imageGenFilepath}  -define histogram:unique-colors=true -fx \"(min(u,v)>{CLOSE_TO_ZERO})?((abs(u-v)/min(u,v))>{NBL_ERROR_THRESHOLD}):(max(u,v)>{CLOSE_TO_ZERO})\" -format %c histogram:info:" 
+                                    executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffValueCommandParams
+                                    magickDiffValProcess = subprocess.run(executor, capture_output=True)
+                                
+                                    #first histogram line is the amount of black pixels - the correct ones
+                                    #second (and last) line is amount of white - pixels whose rel err is above NBL_ERROR_THRESHOLD
+                                    histogramOutputLines = magickDiffValProcess.stdout.decode().splitlines()
+                                    errorPixelCount = histogramOutputLines[-1].split()[0][:-1] if len(histogramOutputLines) > 1 else "0"
+
+                                    # threshold for an error, for now we fail CI when the difference is greater then NBL_ERROR_TOLERANCE_COUNT
+                                    DIFF_PASS = float(errorPixelCount) <= NBL_ERROR_TOLERANCE_COUNT
+                                    TAB3 = "Errors: " + str(errorPixelCount)
+
+                                shutil.move(generatedUndenoisedTargetName + diffTerminator +'.exr', storageFilepath + diffTerminator + '.exr')
+
+                                Diff_Filename= renderName + diffTerminator + "_diff.exr"
+                                HTML_CELL = f'''
+                                <td scope="col">
+                                <a href="{inputParams.diff_imgs_url}/{Diff_Filename}">(Difference)</a><br>
+                                <a href="{inputParams.ref_url}/{renderName}/Render_{renderName}{diffTerminator}.exr">(Reference)</a><br>
+                                <a href="{inputParams.result_imgs_url}/{undenoisedTargetName}{diffTerminator}.exr">(Result)</a>
+                                <td scope="col">{TAB3}</td>
+                                {'<td style="color: green;">PASSED</td>' if DIFF_PASS else '<td style="color: red;">FAILED</td>'}
+                                </td>
+                                '''
+                                if not DIFF_PASS:
+                                    ci_pass_status = False
+                                    PASSED_ALL = False
+
+                            except Exception as ex:
+                                
+                                print(f"Exception occured inside an innermost loop during rendering {renderName}{diffTerminator}: {str(ex)}")
+                                raise ex
+
+                            HTML_CELLS.append(HTML_CELL)
                         
-                            #first histogram line is the amount of black pixels - the correct ones
-                            #second (and last) line is amount of white - pixels whose rel err is above NBL_ERROR_THRESHOLD
-                            histogramOutputLines = magickDiffValProcess.stdout.decode().splitlines()
-                            errorPixelCount = histogramOutputLines[-1].split()[0][:-1] if len(histogramOutputLines) > 1 else "0"
-
-                            # threshold for an error, for now we fail CI when the difference is greater then NBL_ERROR_TOLERANCE_COUNT
-                            DIFF_PASS = float(errorPixelCount) <= NBL_ERROR_TOLERANCE_COUNT
-                            htmlRowTuple[anIndex][HTML_R_A_N_D_D_ERROR] = "Errors: " + str(errorPixelCount)
-                       
-                        if not DIFF_PASS:
-                            CI_PASS_STATUS = False
-                            htmlRowTuple[HTML_TUPLE_PASS_STATUS_INDEX] = False
-
-                        htmlRowTuple[anIndex][HTML_R_A_N_D_D_DIFF] = renderName + diffTerminator + "_diff.exr"
-                        htmlRowTuple[anIndex][HTML_R_A_N_D_D_PASS] = DIFF_PASS
-                        htmlRowTuple[anIndex][HTML_R_A_N_D_D_REF] = 'Render_' + renderName + diffTerminator + ".exr"
-                        htmlRowTuple[anIndex][HTML_R_A_N_D_D_RES] = undenoisedTargetName + diffTerminator + ".exr"
-
-                        anIndex += 1
-                    htmlData.append(htmlRowTuple)
-
-                    storageFilepath = str(inputParams.storage_dir) + '/' + undenoisedTargetName
-                    shutil.move(generatedUndenoisedTargetName + '.exr', storageFilepath + '.exr')
-                    shutil.move(generatedUndenoisedTargetName + '_albedo.exr', storageFilepath + '_albedo.exr')
-                    shutil.move(generatedUndenoisedTargetName + '_normal.exr', storageFilepath + '_normal.exr')
-                    shutil.move(generatedUndenoisedTargetName + '_denoised.exr',storageFilepath + '_denoised.exr')
+                        #write to file in append mode 
+                        HTML = f'''
+                        <tr>
+                        <td>{renderName}</td>
+                        {'<td style="color: green;">PASSED</td>' if PASSED_ALL else '<td style="color: red;">FAILED</td>'}
+                        ''' + ' '.join(HTML_CELLS)  + '''
+                        </tr>
+                        '''
 
 
-            generateHTMLStatus(htmlData, cacheChanged, inputParams)
+                        storageFilepath = str(inputParams.storage_dir) + '/' + undenoisedTargetName
+                    except Exception as ex:
+                        HTML = f'''<tr style="color: red;">CRASHED</tr>'''
+                        print(f"Critical exception occured during rendering {line}: {str(ex)}")
+                        ci_pass_status = False
+                        break
+                    htmlFile = open(inputParams.summary_html_filepath, "a")
+                    htmlFile.write(HTML)
+
+            if not cmp_files(inputParams,destinationReferenceCache, generatedReferenceCache):
+                cacheChanged = True
+                ci_pass_status = False
+            htmlFoot(cacheChanged, inputParams)
     else:
         print('Path tracer executable does not exist!')
         exit(-1)
+    return ci_pass_status
 
 if __name__ == '__main__':
-    run_all_tests(NBL_SCENES_INPUTS)
+    CI_PASS_STATUS=run_all_tests(NBL_SCENES_INPUTS)
+    print('CI done')
+
 
 if not CI_PASS_STATUS:
     exit(-2)
