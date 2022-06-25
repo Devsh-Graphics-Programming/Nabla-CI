@@ -123,13 +123,18 @@ def htmlFoot(_cacheChanged : bool, scenes_input : Inputs):
         HTML += '''
         <h2 style="color: red;">FAILED PASS: Low Discrepancy Sequence Cache has been overwritten by a new one!</h2>
         '''
+    else:
+        executor = f'git hash-object {scenes_input.references_dir}/{NBL_CI_LDS_CACHE_FILENAME}'
+        hash = subprocess.run(executor, capture_output=True).stdout.decode().strip()
+        HTML += f'''
+        <h2 style="color: green;">LDS Cache hash: {hash}</h2>'''
     HTML += '''
     </body>
     </html>
     '''
     htmlFile = open(scenes_input.summary_html_filepath, "a")
     htmlFile.write(HTML)
-
+    htmlFile.close()
 
 def get_render_filename(line : str):
     words = line.replace('"', '').strip().split(" ")
@@ -219,6 +224,7 @@ def run_all_tests(inputParamList):
                             '''
                             htmlFile = open(inputParams.summary_html_filepath, "a")
                             htmlFile.write(HTML)
+                            htmlFile.close()
                             continue
 
                         executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + scene + ' -TERMINATE'
@@ -281,6 +287,7 @@ def run_all_tests(inputParamList):
                                 if not DIFF_PASS:
                                     ci_pass_status = False
                                     PASSED_ALL = False
+                                print (f'\t\t{renderName}{diffTerminator}   {"PASSED" if DIFF_PASS else "FAILED"}')
 
                             except Exception as ex:
                                 
@@ -297,6 +304,7 @@ def run_all_tests(inputParamList):
                         ''' + ' '.join(HTML_CELLS)  + '''
                         </tr>
                         '''
+                        print (f'Overall {renderName}   {"PASSED" if PASSED_ALL else "FAILED"}')
 
 
                         storageFilepath = str(inputParams.storage_dir) + '/' + undenoisedTargetName
@@ -307,6 +315,8 @@ def run_all_tests(inputParamList):
                         break
                     htmlFile = open(inputParams.summary_html_filepath, "a")
                     htmlFile.write(HTML)
+                    htmlFile.close()
+
 
             if not cmp_files(inputParams,destinationReferenceCache, generatedReferenceCache):
                 cacheChanged = True
