@@ -14,10 +14,10 @@ NBL_ERROR_THRESHOLD = "0.05" #relative error between reference and generated ima
 NBL_ERROR_TOLERANCE_COUNT = 64   
  
 def get_git_revision_hash() -> str:
-    return subprocess.check_output(f'git -C "{NBL_CI_ROOT}" rev-parse HEAD').decode('ascii').strip()
+    return subprocess.check_output(f'git -C "{NBL_CI_ROOT}" rev-parse origin/ditt').decode('ascii').strip()
 
 def get_submodule_revision_hash() -> str:
-    return subprocess.check_output(f'git -C "{NBL_CI_ROOT}" submodule status').decode('ascii').strip().split()[0]
+    return subprocess.check_output(f'git -C "{NBL_CI_ROOT}/references/private" rev-parse origin/master').decode('ascii').strip()
 
 class Inputs:
     def __init__(self, 
